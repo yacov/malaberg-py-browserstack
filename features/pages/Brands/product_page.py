@@ -1,11 +1,10 @@
 import logging
-from typing import Optional
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
 from selenium.webdriver.common.action_chains import ActionChains
-from .base_page import BasePage
+from features.pages.Common.base_page import BasePage
 import time
 from selenium.webdriver.support.select import Select
 
@@ -60,14 +59,14 @@ class ProductPage(BasePage):
             self.browser.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
             # Add a small wait to allow any animations to complete
             self.browser.implicitly_wait(1)
-            
+
             if use_js:
                 # Try JavaScript click
                 self.browser.execute_script("arguments[0].click();", element)
             else:
                 # Try regular click
                 element.click()
-            
+
             return True
         except Exception as e:
             logger.warning(f"Click failed: {str(e)}")
@@ -78,21 +77,21 @@ class ProductPage(BasePage):
         Adds the product to cart with enhanced error handling and retry mechanism.
         """
         logging.info("Attempting to add product to cart")
-        
+
         # Wait for page to be fully loaded
         time.sleep(2)
-        
+
         for attempt in range(retries):
             try:
                 # Try to find the add to cart button
                 add_to_cart_button = WebDriverWait(self.browser, timeout).until(
                     EC.presence_of_element_located(self.SELECTORS['add_to_cart_button'])
                 )
-                
+
                 # Scroll to button and ensure it's in view
                 self.browser.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", add_to_cart_button)
                 time.sleep(1)
-                
+
                 try:
                     # Try regular click first
                     add_to_cart_button.click()
@@ -103,28 +102,28 @@ class ProductPage(BasePage):
                     except:
                         # Try ActionChains as last resort
                         ActionChains(self.browser).move_to_element(add_to_cart_button).click().perform()
-                
+
                 # Wait for success message or cart update
                 if self.wait_for_success_message(timeout):
                     logging.info("Successfully added product to cart")
                     return True
-                    
+
             except Exception as e:
                 logging.warning(f"Add to cart attempt {attempt + 1} failed: {str(e)}")
                 if attempt == retries - 1:
                     logging.error("Failed to add product to cart after all retries")
                     return False
                 time.sleep(2)
-                
+
         return False
 
     def wait_for_success_message(self, timeout=10):
         """
         Waits for success message after adding to cart.
-        
+
         Args:
             timeout (int): Maximum time to wait for success message
-            
+
         Returns:
             bool: True if success message appears, False otherwise
         """
@@ -140,7 +139,7 @@ class ProductPage(BasePage):
     def select_subscription_option(self):
         """
         Select the subscription purchase option and verify the selection.
-        
+
         Returns:
             bool: True if subscription was successfully selected, False otherwise
         """
@@ -149,26 +148,26 @@ class ProductPage(BasePage):
             subscription_radio = WebDriverWait(self.browser, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//input[@type='radio'][@value='subscription']"))
             )
-            
+
             # Scroll to element and click
             self.scroll_to_element(subscription_radio)
-            
+
             # Use JavaScript to ensure the click happens
             self.browser.execute_script("arguments[0].click();", subscription_radio)
-            
+
             # Add a small delay to let the UI update
             time.sleep(1)
-            
+
             # Verify selection
             is_selected = self.browser.execute_script(
-                "return arguments[0].checked;", 
+                "return arguments[0].checked;",
                 subscription_radio
             )
-            
+
             if not is_selected:
                 logger.error("Subscription radio button is not selected after clicking")
                 return False
-                
+
             # Select frequency if available
             try:
                 frequency_select = WebDriverWait(self.browser, 5).until(
@@ -178,10 +177,10 @@ class ProductPage(BasePage):
                 select.select_by_index(1)  # Select first available frequency
             except TimeoutException:
                 logger.warning("Frequency selector not found, continuing anyway")
-                
+
             logger.info("Successfully selected subscription option")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error selecting subscription option: {e}")
             return False

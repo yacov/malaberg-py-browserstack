@@ -1,3 +1,5 @@
 local.log
 env
 **.pyc
+/.github/
+.env

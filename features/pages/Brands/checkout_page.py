@@ -1,4 +1,4 @@
-from .base_page import BasePage
+from features.pages.Common.base_page import BasePage
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -75,7 +75,7 @@ class CheckoutPage(BasePage):
     def fill_in_checkout_form(self, user_data: dict) -> None:
         """
         Fill in the checkout form with provided user data.
-        
+
         :param user_data: Dictionary containing user information
         """
         required_fields = ['email', 'first_name', 'last_name', 'phone', 'address', 'city', 'postcode', 'country']
@@ -122,7 +122,7 @@ class CheckoutPage(BasePage):
     def enter_payment_details(self, payment_details: dict) -> None:
         """
         Enter payment details into Stripe iframe fields.
-        
+
         :param payment_details: Dictionary containing card details
         """
         # Card Number Frame
@@ -146,7 +146,7 @@ class CheckoutPage(BasePage):
     def select_shipping_method(self, method: str) -> None:
         """
         Select a shipping method.
-        
+
         :param method: The shipping method to select
         """
         xpath = f"//span[contains(text(), '{method}')]/../../input[@type='radio']"
@@ -182,7 +182,7 @@ class CheckoutPage(BasePage):
 
     def is_checkout_page(self) -> bool:
         """Verify that the current page is the checkout page."""
-        return (self.is_element_visible(self.SELECTORS['CHECKOUT_TITLE']) and 
+        return (self.is_element_visible(self.SELECTORS['CHECKOUT_TITLE']) and
                 self.is_element_present(self.SELECTORS['CHECKOUT_FORM']))
 
     def get_page_title(self) -> str:
@@ -199,15 +199,15 @@ class CheckoutPage(BasePage):
         try:
             paypal_radio = self.browser.find_element(*self.SELECTORS['PAYPAL_RADIO'])
             paypal_radio.click()
-            
+
             if not paypal_radio.is_selected():
                 raise RuntimeError('PayPal radio button was not successfully selected')
-                
+
             complete_purchase = self.browser.find_element(*self.SELECTORS['COMPLETE_PURCHASE_BUTTON'])
             complete_purchase.click()
-            
+
             self.wait_for_ajax()
-            
+
         except NoSuchElementException as e:
             raise RuntimeError(f"Failed to select PayPal payment method: {str(e)}")
 
@@ -237,7 +237,7 @@ class CheckoutPage(BasePage):
     def is_checkout_form_locked(self) -> bool:
         """Check if the checkout form is locked."""
         form = self.browser.find_element(*self.SELECTORS['CHECKOUT_FORM'])
-        return ('locked' in form.get_attribute('class') or 
+        return ('locked' in form.get_attribute('class') or
                 form.get_attribute('data-locked') is not None)
 
     def _parse_price(self, price_text: str) -> float:

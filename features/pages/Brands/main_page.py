@@ -1,4 +1,4 @@
-from .base_page import BasePage
+from features.pages.Common.base_page import BasePage
 from selenium.webdriver.common.by import By
 
 class MainPage(BasePage):
@@ -9,7 +9,7 @@ class MainPage(BasePage):
     def __init__(self, browser):
         """
         Initialize the MainPage with a browser instance.
-        
+
         :param browser: Selenium WebDriver instance
         """
         super().__init__(browser)
@@ -32,7 +32,7 @@ class MainPage(BasePage):
     def get_page_title(self):
         """
         Get the page title text.
-        
+
         :return: str: The page title text
         """
         return self.page_title.text
@@ -40,7 +40,7 @@ class MainPage(BasePage):
     def select_product(self, product_name):
         """
         Select a product by its name.
-        
+
         :param product_name: str: The name of the product to select
         """
         product_link = self.browser.find_element(By.LINK_TEXT, product_name)

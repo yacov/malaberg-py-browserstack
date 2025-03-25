@@ -1,16 +1,77 @@
-userName: iakovvolfkovich_F75ojQ
-accessKey: HYAZ4DUHsvFrouzKZqyj
-framework: behave
+# BrowserStack Credentials
+userName: ${BROWSERSTACK_USERNAME}
+accessKey: ${BROWSERSTACK_ACCESS_KEY}
+
+# Project Configuration
+projectName: "Malaberg Shopify Tests"
+buildName: "Simple Feature Test ${BUILD_NUMBER}"
+
+# Single-thread execution (aligning with subscription limitations)
+parallels: 1
+maxParallels: 1
+runSynchronously: false  
+
+# Platform Configuration - Samsung Galaxy S22 only
 platforms:
-  - deviceName: Samsung Galaxy S23 Ultra
-    osVersion: 13.0
-    browserName: chrome
-    deviceOrientation: portrait
-  - deviceName: iPhone 13
-    osVersion: 15
-    browserName: Safari
-    deviceOrientation: portrait
-parallelsPerPlatform: 1
-browserstackLocal: false
-buildName: new tests
-projectName: BrowserStack Aeons
+  - deviceName: "Samsung Galaxy S22"
+    osVersion: "12.0"
+    browserName: "chrome"
+    realMobile: true
+
+# Framework Configuration  
+framework: behave
+frameworkVersion: 2
+debug: true
+
+# Logging Options
+consoleLogs: verbose  
+networkLogs: true
+disableAutoCaptureLogs: false
+local: false
+video: true  
+seleniumLogs: true
+appiumLogs: true
+
+# Threading stability configuration
+disableThreadedResults: false  
+
+# Test Discovery Configuration
+behave:
+  featureFilePaths:
+    - "features/simple_test.feature"
+  stepDefinitionFilePaths:
+    - "features/steps/Shopify/*.py"
+  environmentFilePath: "features/environment.py"
+  tags: "@simple,@shopify"
+  outputFilePath: "reports/behave-report.json"
+  args:
+    - "--no-capture"
+    - "--no-skipped"
+    - "--format=pretty"
+    - "--format=json.pretty:reports/behave-report-pretty.json"
+
+# Module Discovery Paths
+source_dirs:
+  - "."
+  - "features"
+  - "features/utils"
+
+# Session management
+idleTimeout: 300
+sessionTimeout: 1800
+browserStackLocal: false  
+
+# Additional capabilities
+capabilities:
+  browserstack.debug: true
+  browserstack.console: verbose
+  browserstack.networkLogs: true
+  browserstack.seleniumLogs: true
+  browserstack.video: true
+  browserstack.geoLocation: "GB"  
+  browserstack.timezone: "London"  
+  browserstack.acceptSslCerts: true
+  browserstack.use_w3c: true  
+  browserstack.idleTimeout: 300
+  browserstack.networkProfile: null  
+  browserstack.maskCommands: "setValues, getValues, setCookies, getCookies"  

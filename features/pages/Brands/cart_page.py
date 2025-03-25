@@ -1,11 +1,10 @@
 import logging
-from decimal import Decimal
 from typing import Optional, Tuple, List
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from .base_page import BasePage
+from features.pages.Common.base_page import BasePage
 from urllib.parse import urlparse
 import time
 from selenium.common.exceptions import ElementClickInterceptedException
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class CartPage(BasePage):
     """Enhanced cart page object with improved validation and error handling."""
-    
+
     SELECTORS = {
         'CART_ITEM': (By.CSS_SELECTOR, '.cart-table tbody tr'),
         'PRODUCT_NAME': (By.CSS_SELECTOR, '.product-description h3'),
@@ -66,11 +65,11 @@ class CartPage(BasePage):
         """Check if current URL matches the cart page URL."""
         current_url = urlparse(self.browser.current_url)
         expected_url = urlparse(f"https://aeonstest.info{self.url}")
-        
+
         # Compare only the path components, ignoring query parameters
         current_path = current_url.path.rstrip('/')
         expected_path = expected_url.path.rstrip('/')
-        
+
         logger.info(f"URL Match Check:")
         logger.info(f"  Current path: {current_path}")
         logger.info(f"  Expected path: {expected_path}")
@@ -164,7 +163,7 @@ class CartPage(BasePage):
 
     def apply_coupon(self, coupon_code: str) -> Tuple[bool, Optional[str]]:
         """Apply a coupon code to the cart.
-        
+
         Returns:
             Tuple[bool, Optional[str]]: A tuple containing (success, error_message)
         """
@@ -277,30 +276,30 @@ class CartPage(BasePage):
 
     def proceed_to_checkout(self) -> bool:
         """Proceed to checkout.
-        
+
         Returns:
             bool: True if successfully proceeded to checkout, False otherwise
         """
         try:
             # Find the checkout button
             element = self.browser.find_element(*self.SELECTORS['CHECKOUT_BUTTON'])
-            
+
             # Scroll the button into view
             self.browser.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
             time.sleep(1)  # Wait for scroll to complete
-            
+
             # Try to click the button
             try:
                 element.click()
             except ElementClickInterceptedException:
                 # If regular click fails, try JavaScript click
                 self.browser.execute_script("arguments[0].click();", element)
-            
+
             # Wait for URL to change
             WebDriverWait(self.browser, 5).until(
                 lambda x: '/checkout' in x.current_url
             )
-            
+
             return True
         except Exception as e:
             logger.error(f"Error proceeding to checkout: {e}")
@@ -383,28 +382,28 @@ class CartPage(BasePage):
             WebDriverWait(self.browser, 5).until(
                 lambda x: len(x.find_elements(By.XPATH, "//span[contains(text(), 'Promotion discount:')]")) > 0
             )
-            
+
             # Get the items total (non-strikethrough value)
             items_total_elem = self.browser.find_element(By.XPATH, "//p[.//span[text()='Items total:']]//span[@class='numbers' and not(contains(@class, 'strikethrough'))]")
             items_total_value = self._parse_price(items_total_elem.text)
-            
+
             # Get the promotion discount
             discount_elem = self.browser.find_element(By.XPATH, "//p[.//span[text()='Promotion discount:']]//span[@class='numbers']")
             discount_text = discount_elem.text.strip()
             # Remove the minus sign if present and parse the price
             discount_value = self._parse_price(discount_text.replace('-', ''))
-            
+
             if discount_value <= 0:
                 logger.warning("No discount amount found")
                 return False
-                
+
             if discount_value > (items_total_value * 0.5):
                 logger.warning(f"Discount amount {discount_value} seems too high compared to total {items_total_value}")
                 return False
-                
+
             logger.info(f"Discount verification successful: Original total: {items_total_value}, Discount: {discount_value}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error verifying discount: {e}")
             return False
@@ -412,7 +411,7 @@ class CartPage(BasePage):
     def get_purchase_type(self):
         """
         Get the current purchase type displayed in the cart.
-        
+
         Returns:
             str: The purchase type text or None if not found
         """
@@ -420,21 +419,21 @@ class CartPage(BasePage):
             # Wait for purchase type element with more specific selector
             purchase_type_elem = WebDriverWait(self.browser, 10).until(
                 EC.presence_of_element_located((
-                    By.XPATH, 
+                    By.XPATH,
                     "//div[contains(@class, 'cart-item')]//span[contains(@class, 'purchase-type')] | " +
                     "//div[contains(@class, 'cart-item')]//div[contains(text(), 'Subscribe & Save')] | " +
                     "//div[contains(@class, 'cart-item')]//div[contains(text(), 'One-time purchase')]"
                 ))
             )
-            
+
             # Scroll to element to ensure it's in view
             self.scroll_to_element(purchase_type_elem)
-            
+
             # Get text and clean it up
             purchase_type = purchase_type_elem.text.strip()
             logger.info(f"Found purchase type in cart: {purchase_type}")
             return purchase_type
-            
+
         except TimeoutException:
             logger.error("Purchase type element not found in cart")
             return None
