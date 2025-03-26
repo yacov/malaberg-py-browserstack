@@ -27,6 +27,9 @@ class ProductPage(BasePage):
     ADD_TO_CART_BUTTON = (By.CSS_SELECTOR, "button[name='add']")
     BUY_NOW_BUTTON = (By.CSS_SELECTOR, "button[data-shopify='payment-button']")
     
+    # Cart icon in header
+    CART_ICON = (By.CSS_SELECTOR, "a.header__icon--cart")
+    
     # Subscribe and save
     SUBSCRIBE_OPTION = (By.CSS_SELECTOR, "input#subscribe-and-save")
     SUBSCRIPTION_FREQUENCY = (By.CSS_SELECTOR, "select#subscription-frequency")
@@ -237,3 +240,7 @@ class ProductPage(BasePage):
                 "answer": answer
             }
         return None
+    
+    def click_cart_icon(self):
+        """Click the cart icon in the header"""
+        self.click_element(self.CART_ICON)

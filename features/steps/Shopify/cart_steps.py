@@ -70,6 +70,19 @@ def step_impl_clear_cart(context):
     except TimeoutException:
         assert False, f"Could not clear cart (timeout)"
 
+@when('I click on the cart icon')
+def step_impl_click_cart_icon(context):
+    # If we're already on the product page, click the cart icon there
+    if hasattr(context, 'product_page'):
+        try:
+            context.product_page.click_cart_icon()
+        except TimeoutException:
+            assert False, "Could not click cart icon on product page (timeout)"
+    # Otherwise we need to ensure the cart page is initialized
+    else:
+        context.cart_page = CartPage(context)
+        context.cart_page.open_cart()
+
 @then('The cart should contain {count} items')
 def step_impl_verify_item_count(context, count):
     if not hasattr(context, 'cart_page'):

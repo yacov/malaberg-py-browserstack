@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime
 import requests
+from features.utils.shopify_mcp_client import get_shopify_mcp_client
 
 # Global variables for thread tracking and MCP testing
 _ACTIVE_THREADS = set()
@@ -36,9 +37,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger()
-
-# Load environment variables
-load_dotenv()
 
 def _track_threads():
     """Track and record all active threads"""
@@ -119,21 +117,37 @@ def before_all(context):
     """
     Runs at the start of the entire behave run.
     """
-    # Register cleanup handlers
-    _register_cleanup()
-    
-    # Track initial threads
+    global _CLEANUP_REGISTERED
+    if not _CLEANUP_REGISTERED:
+        _register_cleanup()
+        _CLEANUP_REGISTERED = True
+
     logger.info("Initial thread state:")
     _track_threads()
-    
-    # Set up context attributes
-    context.config.setup_logging()
-    context.browser = None
-    context.driver = None
-    context.wait = None
-    
-    # Load environment variables
+
+    # Load environment variables first
     load_dotenv()
+    
+    # Set up context variables
+    context.config.setup_logging()
+    
+    # Add logger to context for access in page objects
+    context.logger = logger
+    
+    # Log environment variables for debugging
+    logger.info(f"USE_MOCK_MCP: {os.environ.get('USE_MOCK_MCP')}")
+    logger.info(f"SHOPIFY_MCP_SERVER: {os.environ.get('SHOPIFY_MCP_SERVER')}")
+    logger.info(f"SHOPIFY_API_KEY exists: {'SHOPIFY_API_KEY' in os.environ}")
+    
+    # Initialize shopify client based on environment
+    if _is_using_real_mcp_server():
+        logger.info("Using REAL MCP server for testing")
+        from features.utils.shopify_mcp_client import get_shopify_mcp_client
+        context.shopify_mcp_client = get_shopify_mcp_client(os.environ.get('SHOPIFY_MCP_SERVER'))
+    else:
+        logger.info("Using MOCK MCP server for testing")
+        from features.mocks.mock_mcp_server import mock_mcp_server
+        context.shopify_mcp_server = os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')
     
     # Set up base URLs
     context.dev_url = os.environ.get('DEV_URL')
@@ -383,12 +397,16 @@ def mcp1_get_orders(query=None, first=10, **kwargs):
     """Get orders from Shopify"""
     try:
         logging.info(f"Getting orders with query: {query}, first: {first}")
-        response = requests.get(
-            f"{os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')}/get-orders",
-            params={"query": query, "first": first, **kwargs}
-        )
-        response.raise_for_status()
-        return response.json()
+        
+        if _is_using_real_mcp_server():
+            # Use our client for real MCP server
+            client = get_shopify_mcp_client()
+            return client.get_orders(query=query, first=first, **kwargs)
+        else:
+            # Use mock MCP server
+            from features.mocks.mock_mcp_server import mcp1_get_orders as mock_get_orders
+            return mock_get_orders(query=query, first=first, **kwargs)
+            
     except Exception as e:
         logging.error(f"Error getting orders: {str(e)}")
         return {"orders": []}
@@ -397,12 +415,16 @@ def mcp1_get_order(orderId):
     """Get specific order details"""
     try:
         logging.info(f"Getting order details for order ID: {orderId}")
-        response = requests.get(
-            f"{os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')}/get-order",
-            params={"orderId": orderId}
-        )
-        response.raise_for_status()
-        return response.json()
+        
+        if _is_using_real_mcp_server():
+            # Use our client for real MCP server
+            client = get_shopify_mcp_client()
+            return client.get_order(orderId)
+        else:
+            # Use mock MCP server
+            from features.mocks.mock_mcp_server import mcp1_get_order as mock_get_order
+            return mock_get_order(orderId)
+            
     except Exception as e:
         logging.error(f"Error getting order details: {str(e)}")
         return {}
@@ -411,15 +433,16 @@ def mcp1_get_customers(limit=10, next=None):
     """Get customers from Shopify"""
     try:
         logging.info(f"Getting customers with limit: {limit}")
-        params = {"limit": limit}
-        if next:
-            params["next"] = next
-        response = requests.get(
-            f"{os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')}/get-customers",
-            params=params
-        )
-        response.raise_for_status()
-        return response.json()
+        
+        if _is_using_real_mcp_server():
+            # Use our client for real MCP server
+            client = get_shopify_mcp_client()
+            return client.get_customers(limit=limit, next_cursor=next)
+        else:
+            # Use mock MCP server
+            from features.mocks.mock_mcp_server import mcp1_get_customers as mock_get_customers
+            return mock_get_customers(limit=limit, next=next)
+            
     except Exception as e:
         logging.error(f"Error getting customers: {str(e)}")
         return {"customers": []}
@@ -428,17 +451,16 @@ def mcp1_create_draft_order(email, lineItems, note=None, shippingAddress=None):
     """Create a draft order in Shopify"""
     try:
         logging.info(f"Creating draft order for email: {email} with {len(lineItems)} items")
-        response = requests.post(
-            f"{os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')}/create-draft-order",
-            json={
-                "email": email,
-                "lineItems": lineItems,
-                "note": note,
-                "shippingAddress": shippingAddress
-            }
-        )
-        response.raise_for_status()
-        return response.json()
+        
+        if _is_using_real_mcp_server():
+            # Use our client for real MCP server
+            client = get_shopify_mcp_client()
+            return client.create_draft_order(email, lineItems, note, shippingAddress)
+        else:
+            # Use mock MCP server
+            from features.mocks.mock_mcp_server import mcp1_create_draft_order as mock_create_draft_order
+            return mock_create_draft_order(email, lineItems, note, shippingAddress)
+            
     except Exception as e:
         logging.error(f"Error creating draft order: {str(e)}")
         return {}
@@ -447,12 +469,16 @@ def mcp1_complete_draft_order(draftOrderId, variantId):
     """Complete a draft order"""
     try:
         logging.info(f"Completing draft order: {draftOrderId}")
-        response = requests.post(
-            f"{os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')}/complete-draft-order",
-            json={"draftOrderId": draftOrderId, "variantId": variantId}
-        )
-        response.raise_for_status()
-        return response.json()
+        
+        if _is_using_real_mcp_server():
+            # Use our client for real MCP server
+            client = get_shopify_mcp_client()
+            return client.complete_draft_order(draftOrderId, variantId)
+        else:
+            # Use mock MCP server
+            from features.mocks.mock_mcp_server import mcp1_complete_draft_order as mock_complete_draft_order
+            return mock_complete_draft_order(draftOrderId, variantId)
+            
     except Exception as e:
         logging.error(f"Error completing draft order: {str(e)}")
         return {}
@@ -461,12 +487,16 @@ def mcp1_tag_customer(customerId, tags):
     """Add tags to a customer"""
     try:
         logging.info(f"Adding tags to customer {customerId}: {tags}")
-        response = requests.post(
-            f"{os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')}/tag-customer",
-            json={"customerId": customerId, "tags": tags}
-        )
-        response.raise_for_status()
-        return response.json()
+        
+        if _is_using_real_mcp_server():
+            # Use our client for real MCP server
+            client = get_shopify_mcp_client()
+            return client.tag_customer(customerId, tags)
+        else:
+            # Use mock MCP server
+            from features.mocks.mock_mcp_server import mcp1_tag_customer as mock_tag_customer
+            return mock_tag_customer(customerId, tags)
+            
     except Exception as e:
         logging.error(f"Error tagging customer: {str(e)}")
         return {}
@@ -475,15 +505,16 @@ def mcp1_get_products(limit=10, searchTitle=None):
     """Get products from Shopify"""
     try:
         logging.info(f"Getting products with limit: {limit}, searchTitle: {searchTitle}")
-        params = {"limit": limit}
-        if searchTitle:
-            params["searchTitle"] = searchTitle
-        response = requests.get(
-            f"{os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')}/get-products",
-            params=params
-        )
-        response.raise_for_status()
-        return response.json()
+        
+        if _is_using_real_mcp_server():
+            # Use our client for real MCP server
+            client = get_shopify_mcp_client()
+            return client.get_products(limit=limit, search_title=searchTitle)
+        else:
+            # Use mock MCP server
+            from features.mocks.mock_mcp_server import mcp1_get_products as mock_get_products
+            return mock_get_products(limit=limit, searchTitle=searchTitle)
+            
     except Exception as e:
         logging.error(f"Error getting products: {str(e)}")
         return {"products": []}
@@ -492,23 +523,16 @@ def mcp1_create_discount(code, valueType, value, title, startsAt, endsAt=None, a
     """Create a basic discount code"""
     try:
         logging.info(f"Creating discount code: {code}, value: {value}, type: {valueType}")
-        payload = {
-            "code": code,
-            "valueType": valueType,
-            "value": value,
-            "title": title,
-            "startsAt": startsAt,
-            "appliesOncePerCustomer": appliesOncePerCustomer
-        }
-        if endsAt:
-            payload["endsAt"] = endsAt
+        
+        if _is_using_real_mcp_server():
+            # Use our client for real MCP server
+            client = get_shopify_mcp_client()
+            return client.create_discount(code, valueType, value, title, startsAt, endsAt, appliesOncePerCustomer)
+        else:
+            # Use mock MCP server
+            from features.mocks.mock_mcp_server import mcp1_create_discount as mock_create_discount
+            return mock_create_discount(code, valueType, value, title, startsAt, endsAt, appliesOncePerCustomer)
             
-        response = requests.post(
-            f"{os.environ.get('SHOPIFY_MCP_SERVER', 'http://localhost:3000')}/create-discount",
-            json=payload
-        )
-        response.raise_for_status()
-        return response.json()
     except Exception as e:
         logging.error(f"Error creating discount code: {str(e)}")
         return {}

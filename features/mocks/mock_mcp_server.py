@@ -56,7 +56,7 @@ class MockMCPServer:
                 "name": "#1002",
                 "email": "another@example.com",
                 "displayFinancialStatus": "FULFILLED",
-                "totalPriceV2": {"amount": "139.80", "currencyCode": "GBP"},
+                "totalPriceV2": {"amount": "209.70", "currencyCode": "GBP"},
                 "shippingAddress": {
                     "address1": "456 Another Street",
                     "city": "Manchester",
@@ -192,17 +192,30 @@ class MockMCPServer:
         """Mock implementation of get-orders API"""
         logger.info(f"Mock: Getting orders with query: {query}, first: {first}")
         
-        filtered_orders = self.orders.copy()
+        orders = self.orders
+        filtered_orders = []
         
-        # Filter by email if provided in query
-        if query and "email:" in query:
-            email = query.split("email:")[1].strip()
-            filtered_orders = [order for order in filtered_orders if order["email"] == email]
+        # Apply email filter if present
+        if query and 'email:' in query:
+            email = query.split('email:')[1].strip()
+            filtered_orders = [order for order in orders if order.get('email') == email]
+        else:
+            filtered_orders = orders[:first]  # Just return the first N orders
         
-        # Take only the first N orders
-        result = filtered_orders[:first]
+        # Format the response like the real Shopify API
+        edges = []
+        for order in filtered_orders:
+            edges.append({"node": order})
         
-        return {"orders": result}
+        return {
+            "orders": {
+                "pageInfo": {
+                    "hasNextPage": False,
+                    "hasPreviousPage": False
+                },
+                "edges": edges
+            }
+        }
     
     def get_order(self, orderId):
         """Mock implementation of get-order API"""
@@ -360,25 +373,58 @@ mock_mcp_server = MockMCPServer()
 
 # Wrapper functions to match the actual MCP client interface
 def mcp1_get_orders(query=None, first=10, **kwargs):
-    return mock_mcp_server.get_orders(query, first, **kwargs)
+    """Get orders from mock Shopify"""
+    logger.info(f"Mock: Getting orders with query: {query}, first: {first}")
+    
+    orders = mock_mcp_server.orders
+    filtered_orders = []
+    
+    # Apply email filter if present
+    if query and 'email:' in query:
+        email = query.split('email:')[1].strip()
+        filtered_orders = [order for order in orders if order.get('email') == email]
+    else:
+        filtered_orders = orders[:first]  # Just return the first N orders
+    
+    # Format the response like the real Shopify API
+    edges = []
+    for order in filtered_orders:
+        edges.append({"node": order})
+    
+    return {
+        "orders": {
+            "pageInfo": {
+                "hasNextPage": False,
+                "hasPreviousPage": False
+            },
+            "edges": edges
+        }
+    }
 
 def mcp1_get_order(orderId):
+    """Get order from mock Shopify"""
     return mock_mcp_server.get_order(orderId)
 
 def mcp1_get_customers(limit=10, next=None):
+    """Get customers from mock Shopify"""
     return mock_mcp_server.get_customers(limit, next)
 
 def mcp1_create_draft_order(email, lineItems, note=None, shippingAddress=None):
+    """Create draft order in mock Shopify"""
     return mock_mcp_server.create_draft_order(email, lineItems, note, shippingAddress)
 
 def mcp1_complete_draft_order(draftOrderId, variantId):
+    """Complete draft order in mock Shopify"""
     return mock_mcp_server.complete_draft_order(draftOrderId, variantId)
 
 def mcp1_tag_customer(customerId, tags):
+    """Tag customer in mock Shopify"""
     return mock_mcp_server.tag_customer(customerId, tags)
 
 def mcp1_get_products(limit=10, searchTitle=None):
+    """Get products from mock Shopify"""
     return mock_mcp_server.get_products(limit, searchTitle)
 
 def mcp1_create_discount(code, valueType, value, title, startsAt, endsAt=None, appliesOncePerCustomer=False):
+    """Create discount in mock Shopify"""
     return mock_mcp_server.create_discount(code, valueType, value, title, startsAt, endsAt, appliesOncePerCustomer)
